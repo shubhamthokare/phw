@@ -1,0 +1,52 @@
+name: Build and Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.GCP_PROJECT }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
+
+    - name: Configure Docker for Artifact Registry
+      run: |
+        gcloud auth configure-docker "${{ secrets.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev" --quiet
+
+    - name: Build and Push Image
+      run: |
+        IMAGE="${{ secrets.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/$GITHUB_REPOSITORY:${{ github.sha }}"
+
+        docker build -t "$IMAGE" .
+        docker push "$IMAGE"
+      env:
+        GITHUB_REPOSITORY: ${{ github.repository }}
+
+    - name: Deploy to Cloud Run
+      run: |
+        SERVICE=${{ secrets.CLOUD_RUN_SERVICE }}
+        REGION=${{ secrets.CLOUD_RUN_REGION }}
+        IMAGE="${{ secrets.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/$GITHUB_REPOSITORY:${{ github.sha }}"
+
+        if ! gcloud run services describe "$SERVICE" --region="$REGION" >/dev/null 2>&1; then
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated
+        else
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --platform managed
+        fi
