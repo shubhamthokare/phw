@@ -18,19 +18,20 @@ jobs:
         project_id: ${{ secrets.GCP_PROJECT }}
         service_account_key: ${{ secrets.GCP_SA_KEY }}
         export_default_credentials: true
+        version: "latest"   # <-- Ensures asia-south2 Docker registry support
 
     - name: Configure Docker for Artifact Registry
       run: |
         gcloud auth configure-docker "${{ secrets.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev" --quiet
 
     - name: Build and Push Image
+      env:
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         IMAGE="${{ secrets.ARTIFACT_REGISTRY_LOCATION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/${{ secrets.ARTIFACT_REGISTRY_REPO }}/$GITHUB_REPOSITORY:${{ github.sha }}"
 
         docker build -t "$IMAGE" .
         docker push "$IMAGE"
-      env:
-        GITHUB_REPOSITORY: ${{ github.repository }}
 
     - name: Deploy to Cloud Run
       run: |
