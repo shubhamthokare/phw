@@ -7,6 +7,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: test   # <-- Ensures environment-level secrets are used
 
     steps:
     - name: Checkout
@@ -18,7 +19,7 @@ jobs:
         project_id: ${{ secrets.GCP_PROJECT }}
         service_account_key: ${{ secrets.GCP_SA_KEY }}
         export_default_credentials: true
-        version: "latest"   # <-- Ensures asia-south2 Docker registry support
+        version: "latest"   # <-- Required so asia-south2-docker.pkg.dev works
 
     - name: Configure Docker for Artifact Registry
       run: |
